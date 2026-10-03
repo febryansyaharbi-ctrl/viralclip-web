@@ -23,6 +23,10 @@ const patches = [
   [
     'cleanup_source:n===t.length-1',
     'cleanup_source:n===selected.length-1'
+  ],
+  [
+    '`Render `,m.length,` Clip`]})})]})]})(0,k.jsxs)(`p`,{className:`text-xs text-slate-400 mb-2`,children:[`Estimasi render: `',
+    '`Render `,m.length,` Clip`]})})]})]}),(0,k.jsxs)(`p`,{className:`text-xs text-slate-400 mb-2`,children:[`Estimasi render: `'
   ]
 ];
 
