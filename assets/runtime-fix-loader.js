@@ -1,4 +1,7 @@
-const bundleUrl = "/viralclip-web/assets/index-DK5reAhc.js?v=runtime-fix-base-20261003";
+const RUNTIME_FIX_VERSION = "20261003-jsx-fix-v3";
+console.info(`[ViralClip] runtime loader ${RUNTIME_FIX_VERSION}`);
+
+const bundleUrl = `/viralclip-web/assets/index-DK5reAhc.js?v=${RUNTIME_FIX_VERSION}`;
 
 const response = await fetch(bundleUrl, { cache: "no-store" });
 if (!response.ok) {
@@ -30,6 +33,7 @@ const patches = [
   ]
 ];
 
+let applied = 0;
 for (const [from, to] of patches) {
   const first = code.indexOf(from);
   const last = code.lastIndexOf(from);
@@ -40,7 +44,15 @@ for (const [from, to] of patches) {
     throw new Error(`Runtime patch dibatalkan: pola tidak unik: ${from.slice(0, 80)}`);
   }
   code = code.replace(from, to);
+  applied += 1;
 }
+
+const malformedClipResult = ']})]})(0,k.jsxs)(`p`,{className:`text-xs text-slate-400 mb-2`';
+if (code.includes(malformedClipResult)) {
+  throw new Error("Runtime patch JSX gagal: separator clipper_result masih rusak.");
+}
+
+console.info(`[ViralClip] ${RUNTIME_FIX_VERSION}: ${applied} patch diterapkan, JSX clipper_result OK`);
 
 const blobUrl = URL.createObjectURL(
   new Blob([code], { type: "text/javascript" })
