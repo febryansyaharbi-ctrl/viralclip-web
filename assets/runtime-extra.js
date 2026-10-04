@@ -1,155 +1,58 @@
-const VC_EXTRA_VERSION = "20261004-extra-v1";
+const VC_EXTRA_VERSION="20261005-extra-v3";
+const API="https://harnet.tail89c9ef.ts.net";
 console.info(`[ViralClip] extra ${VC_EXTRA_VERSION}`);
 
-const VC_API = "https://harnet.tail89c9ef.ts.net";
+const nativeFetch=window.fetch.bind(window);
+const J=(s,f=null)=>{try{return JSON.parse(s)}catch{return f}};
+const getAnalysis=()=>J(localStorage.getItem("viralclip_last_analysis"),{})||{};
+const getHistory=()=>J(localStorage.getItem("viralclip_history"),[])||[];
+const getTarget=()=>localStorage.getItem("viralclip_target_market")||"id";
+const getNiche=()=>localStorage.getItem("viralclip_custom_niche")||"";
+const settings={words:"viralclip_subtitle_max_words",font:"viralclip_subtitle_font",style:"viralclip_subtitle_style",anim:"viralclip_subtitle_animation"};
 
-function vcHistory() {
-  try { return JSON.parse(localStorage.getItem("viralclip_history") || "[]"); }
-  catch { return []; }
-}
+function matchClip(a,b){if(!a||!b)return false;if(a.id!=null&&b.id!=null&&String(a.id)===String(b.id))return true;const x=Number(a.start),y=Number(b.start);return Number.isFinite(x)&&Number.isFinite(y)&&Math.abs(x-y)<2}
+function enriched(c){const a=getAnalysis();const list=a.clips||a.analysis?.clips||[];const s=list.find(x=>matchClip(c,x));return s?{...c,score:c.score??s.score,title:c.title||s.title,hook:c.hook||s.hook,caption:c.caption||s.caption,tags:c.tags?.length?c.tags:s.tags,start:c.start??s.start,end:c.end??s.end}:c}
+const origSet=localStorage.setItem.bind(localStorage);
+localStorage.setItem=function(k,v){if(k==="viralclip_history"){const x=J(v,null);if(Array.isArray(x))v=JSON.stringify(x.map(e=>({...e,clips:(e.clips||[]).map(enriched)})))}return origSet(k,v)};
+function segsFor(start,end){const a=getAnalysis();const s=a.segments||a.transcription?.segments||[];return s.filter(x=>Number(x.end)>=Number(start)&&Number(x.start)<=Number(end))}
 
-function vcJobIds(entries) {
-  const ids = [];
-  for (const entry of entries) {
-    for (const clip of entry.clips || []) {
-      let id = clip.render_job_id || "";
-      if (!id && clip.download_url) {
-        const m = String(clip.download_url).match(/\/api\/render\/download\/([^/?#]+)/);
-        if (m) id = decodeURIComponent(m[1]);
-      }
-      if (id) ids.push(id);
-    }
-  }
-  return [...new Set(ids)];
-}
+window.fetch=async(input,init={})=>{
+  const url=typeof input==="string"?input:input?.url||"";let next={...init};
+  if(url.includes("/api/render-selected")&&typeof next.body==="string"){
+    try{const b=JSON.parse(next.body);if(b.subtitles!==false){b.subtitles=true;b.subtitle_max_words=Number(localStorage.getItem(settings.words)||"3");b.subtitle_font=localStorage.getItem(settings.font)||"DejaVu Sans";b.subtitle_style=localStorage.getItem(settings.style)||"hormozi";b.subtitle_animation=localStorage.getItem(settings.anim)||"pop";if(!Array.isArray(b.segments)||!b.segments.length)b.segments=segsFor(b.start,b.end)}next.body=JSON.stringify(b);console.info("[ViralClip] subtitle render",b.subtitles,b.segments?.length||0)}catch(e){console.warn(e)}}
+  const r=await nativeFetch(input,next);
+  if(url.includes("/api/process")&&r.ok){try{const d=await r.clone().json();origSet("viralclip_last_analysis",JSON.stringify({...getAnalysis(),...d,_savedAt:Date.now()}))}catch{}}
+  return r;
+};
 
-async function vcCleanup(entries) {
-  const job_ids = vcJobIds(entries);
-  if (!job_ids.length) return;
-  try {
-    const r = await fetch(`${VC_API}/api/render/cleanup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_ids })
-    });
-    if (!r.ok) console.warn("[ViralClip] cleanup sebagian gagal", await r.text());
-  } catch (e) {
-    console.warn("[ViralClip] cleanup server gagal", e);
-  }
-}
+const style=document.createElement("style");style.textContent=`
+.vcx{background:#0f172a;border:1px solid #334155;border-radius:14px;padding:14px;margin:12px 0;color:#e2e8f0;font-family:Inter,system-ui,sans-serif}.vcx h4{margin:0 0 10px;color:#a5b4fc}.vcx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.vcx-card{background:#020617;border:1px solid #334155;border-radius:12px;padding:12px;color:#e2e8f0}.vcx-row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.vcx-row label{font-size:11px;color:#94a3b8;flex:1;min-width:120px}.vcx input,.vcx select{width:100%;background:#020617;border:1px solid #475569;color:#fff;border-radius:8px;padding:8px}.vcx button,.vcx a{background:#4f46e5;color:white;border:0;border-radius:9px;padding:9px 12px;font-weight:700;text-decoration:none;cursor:pointer}.vcx .danger{background:#b91c1c}.vcx small{color:#94a3b8;line-height:1.5}.vcx video{width:100%;max-height:360px;background:#000;border-radius:10px;margin:8px 0}.vcx-score{color:#facc15;font-weight:900}.vcx-tag{display:inline-block;background:#1e293b;border-radius:99px;padding:4px 8px;margin:2px;font-size:11px}#vcx-toast{position:fixed;right:14px;bottom:14px;z-index:999999;background:#111827;color:#fff;border:1px solid #475569;border-radius:10px;padding:10px 12px;display:none;max-width:360px}`;document.head.appendChild(style);
+function toast(t){let e=document.getElementById("vcx-toast");if(!e){e=document.createElement("div");e.id="vcx-toast";document.body.appendChild(e)}e.textContent=t;e.style.display="block";clearTimeout(e._t);e._t=setTimeout(()=>e.style.display="none",3500)}
+function has(t){return document.body?.innerText?.toLowerCase().includes(t.toLowerCase())}
+function heading(t){return [...document.querySelectorAll("h1,h2,h3,h4")].find(x=>(x.textContent||"").toLowerCase().includes(t.toLowerCase()))}
+function host(t){const h=heading(t);return h?.parentElement||document.querySelector("main")}
 
-function vcParseJobId(href) {
-  const m = String(href || "").match(/\/api\/render\/(?:download|video)\/([^/?#]+)/);
-  return m ? decodeURIComponent(m[1]) : "";
-}
+const niches=[
+{id:"finance",name:"Keuangan & Bisnis",d:9.5,e:3,v:4},{id:"ai",name:"AI, Software & Teknologi",d:9,e:4,v:5},{id:"career",name:"Karier & Produktivitas",d:7.5,e:5,v:4},{id:"property",name:"Properti & Real Estate",d:10,e:2,v:3},{id:"health",name:"Kesehatan & Fitness",d:6.5,e:4,v:5},{id:"education",name:"Edukasi & Skill Profesional",d:6,e:5,v:4},{id:"auto",name:"Otomotif",d:6.5,e:3,v:4},{id:"beauty",name:"Beauty, Skincare & Fashion",d:5.5,e:4,v:5},{id:"travel",name:"Travel, Kuliner & Hospitality",d:4.5,e:3,v:5},{id:"kids",name:"Anak-anak & Edukasi Keluarga",d:3.5,e:3,v:4}];
+const score=n=>Math.round(n.d/10*55+n.e/5*25+n.v/5*20);
+function installNiche(){if(document.getElementById("vcx-niche")||!has("Analisis Niche"))return;const h=host("Analisis Niche");if(!h)return;const e=document.createElement("div");e.id="vcx-niche";e.className="vcx";e.innerHTML=`<h4>💵 Analisis Potensi Niche</h4><small>Diurutkan berdasarkan potensi dolar, kemudahan produksi, dan peluang viral. Ini indikator strategi, bukan jaminan pendapatan.</small><div class="vcx-grid" style="margin-top:10px">${[...niches].sort((a,b)=>score(b)-score(a)).map(n=>`<button class="vcx-card" data-niche="${n.id}" style="text-align:left"><b>${n.name}</b><br><span class="vcx-score">${score(n)}/100</span><br><small>Potensi $ ${n.d}/10 • Mudah ${n.e}/5 • Viral ${n.v}/5</small></button>`).join("")}</div>`;e.onclick=x=>{const b=x.target.closest("[data-niche]");if(!b)return;localStorage.setItem("viralclip_custom_niche",b.dataset.niche);toast(`Niche aktif: ${niches.find(n=>n.id===b.dataset.niche)?.name}`);paintNiche()};h.appendChild(e);paintNiche()}
+function paintNiche(){document.querySelectorAll("[data-niche]").forEach(b=>b.style.outline=b.dataset.niche===getNiche()?"2px solid #818cf8":"none")}
 
-function installExportPreviews() {
-  const links = [...document.querySelectorAll('a[href*="/api/render/download/"],a[href*="/api/render/video/"]')];
-  for (const link of links) {
-    const jobId = vcParseJobId(link.getAttribute("href") || link.href);
-    if (!jobId) continue;
-    const key = `vc-preview-${jobId}`;
-    if (document.getElementById(key)) continue;
+function guardTarget(){if(document.body.dataset.vcxGuard)return;document.body.dataset.vcxGuard="1";document.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const t=b.textContent||"";if(/Global \(EN\)/i.test(t)){e.preventDefault();e.stopImmediatePropagation();localStorage.setItem("viralclip_target_market","global");toast("Target pasar: Global (EN)")}else if(/^Indonesia/i.test(t)){e.preventDefault();e.stopImmediatePropagation();localStorage.setItem("viralclip_target_market","id");toast("Target pasar: Indonesia")}},true)}
+function timing(){const n=getNiche();if(getTarget()==="global")return "Global: uji US/Canada 05:00–10:00 WIB, UK 00:00–05:00 WIB, Australia timur 14:00–19:00 WIB; validasi dengan Analytics channel.";if(n==="kids")return "Indonesia: 15:00–19:00 WIB; akhir pekan 08:00–11:00 WIB.";if(n==="health")return "Indonesia: 05:30–08:00 atau 18:00–21:00 WIB.";if(n==="finance"||n==="career")return "Indonesia: 07:00–09:00 atau 19:00–21:00 WIB.";return "Indonesia: uji 11:30–13:30 dan 19:00–21:30 WIB."}
+function copyrightAdvice(){return "Jangan menganggap crop/subtitle otomatis membuat konten bebas copyright. Prioritaskan konten milik sendiri, izin tertulis, CC BY sesuai syarat, atau public domain. Untuk cuplikan pihak lain, tambahkan komentar/analisis/voice-over dan perubahan substantif; tetap tidak menjamin bebas klaim Content ID."}
 
-    const wrap = document.createElement("div");
-    wrap.id = key;
-    wrap.style.cssText = "margin:10px 0 12px;background:#020617;border:1px solid #334155;border-radius:14px;padding:8px";
-    const label = document.createElement("div");
-    label.textContent = "Preview hasil export";
-    label.style.cssText = "font-size:11px;font-weight:800;color:#a5b4fc;margin:0 0 7px";
-    const video = document.createElement("video");
-    video.controls = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-    video.src = `${VC_API}/api/render/video/${encodeURIComponent(jobId)}`;
-    video.style.cssText = "display:block;width:100%;max-height:520px;background:#000;border-radius:10px";
-    wrap.append(label, video);
+function installSub(){if(document.getElementById("vcx-sub")||(!has("Editor & Export")&&!has("Subtitle:")))return;const h=host("Editor & Export")||document.querySelector("main");if(!h)return;const e=document.createElement("div");e.id="vcx-sub";e.className="vcx";e.innerHTML=`<h4>💬 Subtitle Export</h4><div class="vcx-row"><label>Maks kata/frame<select id="sw"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select></label><label>Font<select id="sf"><option>DejaVu Sans</option><option>Liberation Sans</option><option>Arial</option></select></label><label>Gaya<select id="ss"><option value="hormozi">Hormozi Kuning</option><option value="minimal">Minimal Putih</option><option value="mrbeast">MrBeast Pop</option></select></label><label>Animasi<select id="sa"><option value="pop">Pop</option><option value="fade">Fade</option><option value="none">Tanpa animasi</option></select></label></div><small>Jika Subtitle dicentang, transcript segment otomatis ikut dikirim ke engine render agar dibakar ke MP4.</small>`;h.appendChild(e);[["sw",settings.words,"3"],["sf",settings.font,"DejaVu Sans"],["ss",settings.style,"hormozi"],["sa",settings.anim,"pop"]].forEach(([id,k,d])=>{const x=e.querySelector(`#${id}`);x.value=localStorage.getItem(k)||d;x.onchange=()=>localStorage.setItem(k,x.value)})}
 
-    const parent = link.parentElement;
-    if (parent?.parentElement) parent.parentElement.insertBefore(wrap, parent);
-    else link.insertAdjacentElement("beforebegin", wrap);
-  }
-}
+function sourceUrl(){const a=getAnalysis();return a.video_url||a.url||a.sourceUrl||a.metadata?.url||""}
+async function manualRender(){const s=Number(document.getElementById("trimS").value),e=Number(document.getElementById("trimE").value),sub=document.getElementById("trimSub").checked,u=sourceUrl();if(!u)return toast("Proses video utama dulu agar URL tersedia.");if(!Number.isFinite(s)||!Number.isFinite(e)||e<=s||e-s>60)return toast("Timestamp tidak valid. Maksimal 60 detik per clip.");const b=document.getElementById("trimGo");b.disabled=true;b.textContent="Rendering…";try{const r=await fetch(`${API}/api/render-selected`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({video_url:u,start:s,end:e,hook:"",segments:segsFor(s,e),subtitles:sub,cleanup_source:false})});const d=await r.json();if(!r.ok)throw Error(d.detail||d.error||`HTTP ${r.status}`);document.getElementById("trimOut").innerHTML=`<video controls playsinline src="${API}/api/render/video/${encodeURIComponent(d.job_id)}"></video><a href="${API}/api/render/download/${encodeURIComponent(d.job_id)}">Unduh MP4</a>`;toast("Potongan manual selesai")}catch(x){toast(`Render gagal: ${x.message}`)}finally{b.disabled=false;b.textContent="Potong & Render"}}
+function installTrim(){if(document.getElementById("vcx-trim")||!has("Editor & Export"))return;const h=host("Editor & Export");if(!h)return;const e=document.createElement("div");e.id="vcx-trim";e.className="vcx";e.innerHTML=`<h4>✂️ Potong Manual Video Utama</h4><div class="vcx-row"><label>Mulai (detik)<input id="trimS" type="number" step=".1" value="0"></label><label>Selesai (detik)<input id="trimE" type="number" step=".1" value="30"></label><label style="flex:0 0 100px">Subtitle<input id="trimSub" type="checkbox" checked></label><button id="trimGo">Potong & Render</button></div><small>Fitur lama tetap ada; ini opsi tambahan untuk menentukan timestamp sendiri.</small><div id="trimOut"></div>`;h.appendChild(e);e.querySelector("#trimGo").onclick=manualRender}
 
-function installHistoryBulk() {
-  const entries = vcHistory();
-  if (!entries.length) return;
-  const titles = [...document.querySelectorAll("h3")];
-  const cards = [];
-
-  for (const entry of entries) {
-    const h = titles.find(x => x.textContent?.trim() === entry.sourceUrl);
-    const card = h?.parentElement;
-    if (!card) continue;
-    cards.push({ entry, card });
-    if (!card.querySelector(`[data-vc-select="${entry.id}"]`)) {
-      const label = document.createElement("label");
-      label.style.cssText = "display:flex;align-items:center;gap:7px;margin:8px 0;color:#cbd5e1;font-size:12px;font-weight:700";
-      label.innerHTML = `<input type="checkbox" data-vc-select="${entry.id}" style="width:16px;height:16px"> Pilih riwayat ini`;
-      card.insertBefore(label, card.firstChild);
-    }
-  }
-
-  if (!cards.length || document.getElementById("vc-bulk-history")) return;
-  const bar = document.createElement("div");
-  bar.id = "vc-bulk-history";
-  bar.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:12px";
-  const selectAll = document.createElement("button");
-  selectAll.textContent = "Pilih Semua";
-  selectAll.style.cssText = "border:1px solid #475569;background:#1e293b;color:white;border-radius:9px;padding:8px 11px;font-weight:700;font-size:12px";
-  selectAll.onclick = () => {
-    const boxes = [...document.querySelectorAll("input[data-vc-select]")];
-    const allOn = boxes.length && boxes.every(b => b.checked);
-    boxes.forEach(b => b.checked = !allOn);
-    selectAll.textContent = allOn ? "Pilih Semua" : "Batal Pilih Semua";
-  };
-
-  const remove = document.createElement("button");
-  remove.textContent = "Hapus Pilihan";
-  remove.style.cssText = "border:0;background:#b91c1c;color:white;border-radius:9px;padding:8px 11px;font-weight:800;font-size:12px";
-  remove.onclick = async () => {
-    const selected = new Set([...document.querySelectorAll("input[data-vc-select]:checked")].map(x => x.dataset.vcSelect));
-    if (!selected.size) return alert("Pilih riwayat yang ingin dihapus.");
-    if (!confirm(`Hapus ${selected.size} riwayat terpilih beserta file render di VPS?`)) return;
-    remove.disabled = true;
-    const chosen = entries.filter(e => selected.has(String(e.id)));
-    await vcCleanup(chosen);
-    localStorage.setItem("viralclip_history", JSON.stringify(entries.filter(e => !selected.has(String(e.id)))));
-    location.reload();
-  };
-
-  bar.append(selectAll, remove);
-  cards[0].card.parentElement?.insertBefore(bar, cards[0].card);
-}
-
-function installMobileArrows() {
-  if (document.getElementById("vc-mobile-arrows")) return;
-  const box = document.createElement("div");
-  box.id = "vc-mobile-arrows";
-  box.style.cssText = "display:none";
-  box.innerHTML = '<button data-dir="-1">← Slide</button><button data-dir="1">Slide →</button>';
-  document.body.appendChild(box);
-
-  const css = document.createElement("style");
-  css.textContent = `@media(max-width:767px){#vc-mobile-arrows{display:flex;position:fixed;right:12px;bottom:84px;z-index:99998;gap:8px}#vc-mobile-arrows button{border:1px solid #475569;background:rgba(15,23,42,.96);color:#fff;border-radius:999px;padding:8px 12px;font-size:11px;font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.35)}}`;
-  document.head.appendChild(css);
-
-  const labels = ["Strategi","Cari 10 Bahan","AI Clipper","Riwayat","Roadmap Cuan"];
-  box.querySelectorAll("button").forEach(btn => btn.onclick = () => {
-    const nav = [...document.querySelectorAll("header button")].filter(b => labels.some(l => (b.textContent || "").includes(l)));
-    if (!nav.length) return;
-    let idx = nav.findIndex(b => String(b.className).includes("bg-indigo-600"));
-    if (idx < 0) idx = 0;
-    idx = (idx + Number(btn.dataset.dir) + nav.length) % nav.length;
-    nav[idx].click();
-  });
-}
-
-function vcInstallExtra() {
-  installExportPreviews();
-  installHistoryBulk();
-  installMobileArrows();
-}
-
-vcInstallExtra();
-new MutationObserver(vcInstallExtra).observe(document.body, { childList: true, subtree: true });
+function job(c){if(c.render_job_id)return c.render_job_id;const m=String(c.video_url||c.download_url||"").match(/\/api\/render\/(?:video|download)\/([^/?#]+)/);return m?decodeURIComponent(m[1]):""}
+function meta(c){c=enriched(c||{});const tags=Array.isArray(c.tags)?c.tags:[];return `<div class="vcx-score">Score ${c.score??"-"}</div><b>${c.title||"Saran judul belum tersedia"}</b><div><small><b>Caption:</b> ${c.caption||"-"}</small></div><div>${tags.map(t=>`<span class="vcx-tag">${t}</span>`).join("")}</div><div class="vcx-card" style="margin-top:8px"><b>🕒 Saran upload</b><br><small>${timing()}</small></div><div class="vcx-card" style="margin-top:8px"><b>🛡️ Saran editing & hak cipta</b><br><small>${copyrightAdvice()}</small></div>`}
+async function delEntry(ent){const ids=(ent.clips||[]).map(job).filter(Boolean);try{if(ids.length)await fetch(`${API}/api/render/cleanup`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({job_ids:ids})})}catch{}origSet("viralclip_history",JSON.stringify(getHistory().filter(x=>String(x.id)!==String(ent.id))));document.getElementById("vcx-history")?.remove();installHistory();toast("Riwayat dihapus")}
+function installHistory(){if(document.getElementById("vcx-history")||!has("Riwayat"))return;const h=host("Riwayat")||document.querySelector("main");if(!h)return;const list=getHistory().map(e=>({...e,clips:(e.clips||[]).map(enriched)}));const e=document.createElement("div");e.id="vcx-history";e.className="vcx";e.innerHTML=`<h4>🕘 Riwayat Lengkap</h4>${list.length?list.map((x,i)=>`<div class="vcx-card" style="margin:10px 0"><div class="vcx-row"><b>${x.sourceUrl||x.title||`Video ${i+1}`}</b><button class="danger" data-del="${i}">Hapus</button></div>${(x.clips||[]).map(c=>{const j=job(c);return `<div class="vcx-card" style="margin-top:8px">${j?`<video controls playsinline preload="metadata" src="${API}/api/render/video/${encodeURIComponent(j)}"></video>`:""}${meta(c)}</div>`}).join("")}</div>`).join(""):"<small>Belum ada hasil render.</small>"}`;e.onclick=z=>{const b=z.target.closest("[data-del]");if(b)delEntry(list[Number(b.dataset.del)])};h.prepend(e)}
+function enhanceExport(){if(!has("Editor & Export"))return;const a=getAnalysis(),clips=a.clips||a.analysis?.clips||[];[...document.querySelectorAll('a[href*="/api/render/download/"]')].forEach((l,i)=>{const c=l.closest("div.rounded-xl,div.rounded-2xl,div.border")||l.parentElement;if(!c||c.querySelector(".vcx-meta"))return;const m=l.getAttribute("href").match(/\/api\/render\/download\/([^/?#]+)/);if(m&&!c.querySelector("video.vcx-preview")){const v=document.createElement("video");v.className="vcx-preview";v.controls=true;v.playsInline=true;v.preload="metadata";v.src=`${API}/api/render/video/${m[1]}`;v.style.cssText="width:100%;max-height:360px;background:#000;border-radius:10px;margin:8px 0";c.prepend(v)}const d=document.createElement("div");d.className="vcx vcx-meta";d.innerHTML=meta(clips[i]||{});c.appendChild(d)})}
+function installNotice(){if(document.getElementById("vcx-notice")||(!has("Editor & Export")&&!has("Cari 10 Bahan")))return;const h=host("Editor & Export")||host("Cari 10 Bahan")||document.querySelector("main");if(!h)return;const e=document.createElement("div");e.id="vcx-notice";e.className="vcx";e.innerHTML=`<h4>🛡️ Hak Cipta & 🎙️ Framing Podcast</h4><small>${copyrightAdvice()}</small><hr style="border-color:#334155"><small>Untuk podcast dua pembicara, crop tengah statis memang dapat memotong wajah. Solusi yang tepat adalah face/speaker tracking yang menggeser crop 9:16 mengikuti wajah aktif. Opsi ini membutuhkan perubahan engine VPS; UI tidak akan mengklaim aktif sebelum backend tracking benar-benar terpasang dan diuji.</small>`;h.appendChild(e)}
+function tick(){try{guardTarget();installNiche();paintNiche();installSub();installTrim();installHistory();enhanceExport();installNotice()}catch(e){console.warn("[ViralClip] extra tick",e)}}
+setInterval(tick,1200);setTimeout(tick,250);
