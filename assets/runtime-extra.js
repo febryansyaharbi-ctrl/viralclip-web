@@ -1,4 +1,4 @@
-const VC_EXTRA_VERSION="20261005-extra-v3";
+const VC_EXTRA_VERSION="20261005-extra-v4";
 const API="https://harnet.tail89c9ef.ts.net";
 console.info(`[ViralClip] extra ${VC_EXTRA_VERSION}`);
 
@@ -31,6 +31,9 @@ function toast(t){let e=document.getElementById("vcx-toast");if(!e){e=document.c
 function has(t){return document.body?.innerText?.toLowerCase().includes(t.toLowerCase())}
 function heading(t){return [...document.querySelectorAll("h1,h2,h3,h4")].find(x=>(x.textContent||"").toLowerCase().includes(t.toLowerCase()))}
 function host(t){const h=heading(t);return h?.parentElement||document.querySelector("main")}
+function visible(el){if(!el)return false;const r=el.getBoundingClientRect();const s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=="none"&&s.visibility!=="hidden"}
+function historyHeading(){return [...document.querySelectorAll("h1,h2,h3,h4")].find(x=>visible(x)&&/^\s*(riwayat|history)(\s|$)/i.test(x.textContent||""))||null}
+function historyActive(){return !!historyHeading()}
 
 const niches=[
 {id:"finance",name:"Keuangan & Bisnis",d:9.5,e:3,v:4},{id:"ai",name:"AI, Software & Teknologi",d:9,e:4,v:5},{id:"career",name:"Karier & Produktivitas",d:7.5,e:5,v:4},{id:"property",name:"Properti & Real Estate",d:10,e:2,v:3},{id:"health",name:"Kesehatan & Fitness",d:6.5,e:4,v:5},{id:"education",name:"Edukasi & Skill Profesional",d:6,e:5,v:4},{id:"auto",name:"Otomotif",d:6.5,e:3,v:4},{id:"beauty",name:"Beauty, Skincare & Fashion",d:5.5,e:4,v:5},{id:"travel",name:"Travel, Kuliner & Hospitality",d:4.5,e:3,v:5},{id:"kids",name:"Anak-anak & Edukasi Keluarga",d:3.5,e:3,v:4}];
@@ -51,7 +54,20 @@ function installTrim(){if(document.getElementById("vcx-trim")||!has("Editor & Ex
 function job(c){if(c.render_job_id)return c.render_job_id;const m=String(c.video_url||c.download_url||"").match(/\/api\/render\/(?:video|download)\/([^/?#]+)/);return m?decodeURIComponent(m[1]):""}
 function meta(c){c=enriched(c||{});const tags=Array.isArray(c.tags)?c.tags:[];return `<div class="vcx-score">Score ${c.score??"-"}</div><b>${c.title||"Saran judul belum tersedia"}</b><div><small><b>Caption:</b> ${c.caption||"-"}</small></div><div>${tags.map(t=>`<span class="vcx-tag">${t}</span>`).join("")}</div><div class="vcx-card" style="margin-top:8px"><b>🕒 Saran upload</b><br><small>${timing()}</small></div><div class="vcx-card" style="margin-top:8px"><b>🛡️ Saran editing & hak cipta</b><br><small>${copyrightAdvice()}</small></div>`}
 async function delEntry(ent){const ids=(ent.clips||[]).map(job).filter(Boolean);try{if(ids.length)await fetch(`${API}/api/render/cleanup`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({job_ids:ids})})}catch{}origSet("viralclip_history",JSON.stringify(getHistory().filter(x=>String(x.id)!==String(ent.id))));document.getElementById("vcx-history")?.remove();installHistory();toast("Riwayat dihapus")}
-function installHistory(){if(document.getElementById("vcx-history")||!has("Riwayat"))return;const h=host("Riwayat")||document.querySelector("main");if(!h)return;const list=getHistory().map(e=>({...e,clips:(e.clips||[]).map(enriched)}));const e=document.createElement("div");e.id="vcx-history";e.className="vcx";e.innerHTML=`<h4>🕘 Riwayat Lengkap</h4>${list.length?list.map((x,i)=>`<div class="vcx-card" style="margin:10px 0"><div class="vcx-row"><b>${x.sourceUrl||x.title||`Video ${i+1}`}</b><button class="danger" data-del="${i}">Hapus</button></div>${(x.clips||[]).map(c=>{const j=job(c);return `<div class="vcx-card" style="margin-top:8px">${j?`<video controls playsinline preload="metadata" src="${API}/api/render/video/${encodeURIComponent(j)}"></video>`:""}${meta(c)}</div>`}).join("")}</div>`).join(""):"<small>Belum ada hasil render.</small>"}`;e.onclick=z=>{const b=z.target.closest("[data-del]");if(b)delEntry(list[Number(b.dataset.del)])};h.prepend(e)}
+function installHistory(){
+  if(!historyActive()){
+    document.getElementById("vcx-history")?.remove();
+    return;
+  }
+  if(document.getElementById("vcx-history"))return;
+  const hh=historyHeading();
+  const h=hh?.parentElement;
+  if(!h)return;
+  const list=getHistory().map(e=>({...e,clips:(e.clips||[]).map(enriched)}));
+  const e=document.createElement("div");e.id="vcx-history";e.className="vcx";e.innerHTML=`<h4>🕘 Riwayat Lengkap</h4>${list.length?list.map((x,i)=>`<div class="vcx-card" style="margin:10px 0"><div class="vcx-row"><b>${x.sourceUrl||x.title||`Video ${i+1}`}</b><button class="danger" data-del="${i}">Hapus</button></div>${(x.clips||[]).map(c=>{const j=job(c);return `<div class="vcx-card" style="margin-top:8px">${j?`<video controls playsinline preload="metadata" src="${API}/api/render/video/${encodeURIComponent(j)}"></video>`:""}${meta(c)}</div>`}).join("")}</div>`).join(""):"<small>Belum ada hasil render.</small>"}`;
+  e.onclick=z=>{const b=z.target.closest("[data-del]");if(b)delEntry(list[Number(b.dataset.del)])};
+  h.appendChild(e)
+}
 function enhanceExport(){if(!has("Editor & Export"))return;const a=getAnalysis(),clips=a.clips||a.analysis?.clips||[];[...document.querySelectorAll('a[href*="/api/render/download/"]')].forEach((l,i)=>{const c=l.closest("div.rounded-xl,div.rounded-2xl,div.border")||l.parentElement;if(!c||c.querySelector(".vcx-meta"))return;const m=l.getAttribute("href").match(/\/api\/render\/download\/([^/?#]+)/);if(m&&!c.querySelector("video.vcx-preview")){const v=document.createElement("video");v.className="vcx-preview";v.controls=true;v.playsInline=true;v.preload="metadata";v.src=`${API}/api/render/video/${m[1]}`;v.style.cssText="width:100%;max-height:360px;background:#000;border-radius:10px;margin:8px 0";c.prepend(v)}const d=document.createElement("div");d.className="vcx vcx-meta";d.innerHTML=meta(clips[i]||{});c.appendChild(d)})}
 function installNotice(){if(document.getElementById("vcx-notice")||(!has("Editor & Export")&&!has("Cari 10 Bahan")))return;const h=host("Editor & Export")||host("Cari 10 Bahan")||document.querySelector("main");if(!h)return;const e=document.createElement("div");e.id="vcx-notice";e.className="vcx";e.innerHTML=`<h4>🛡️ Hak Cipta & 🎙️ Framing Podcast</h4><small>${copyrightAdvice()}</small><hr style="border-color:#334155"><small>Untuk podcast dua pembicara, crop tengah statis memang dapat memotong wajah. Solusi yang tepat adalah face/speaker tracking yang menggeser crop 9:16 mengikuti wajah aktif. Opsi ini membutuhkan perubahan engine VPS; UI tidak akan mengklaim aktif sebelum backend tracking benar-benar terpasang dan diuji.</small>`;h.appendChild(e)}
 function tick(){try{guardTarget();installNiche();paintNiche();installSub();installTrim();installHistory();enhanceExport();installNotice()}catch(e){console.warn("[ViralClip] extra tick",e)}}
