@@ -1,4 +1,4 @@
-const VC_RECO_VERSION = "20261005-reco-v4";
+const VC_RECO_VERSION = "20261005-reco-v4.1";
 console.info(`[ViralClip] recommendations ${VC_RECO_VERSION}`);
 
 const downstreamFetch = window.fetch.bind(window);
@@ -56,8 +56,8 @@ const CFG = {
     name:"Anak-anak & Edukasi Keluarga",
     banned:/politik|pemilu|presiden|menteri|partai|dpr|gubernur|pilkada|kampanye|prabowo|jokowi|anies|ganjar|parlemen|kabinet|election|politic|berita|timnas|menkopolkam|kelas sma|fakta mengejutkan|tarot|zodiak|roblox|kemenkes|bosp|jaminan sosial|visa pelajar|sekolah sabat|mazmur|tawuran|buntung|azab/i,
     id:{
-      queries:["moonbug kids indonesia 2026","edukasi anak indonesia 2026","belajar anak indonesia 2026","kartun anak bahasa indonesia","lagu anak indonesia 2026"],
-      relevant:/bahasa indonesia|moonbug kids indonesia|lagu anak|kartun anak|anak indonesia|edukasi[^\n]*anak|anak[^\n]*edukasi|belajar[^\n]*anak|anak[^\n]*belajar|anak-anak|anak anak|kids indonesia|babybus bahasa indonesia|spookiz bahasa indonesia|sains seru untuk anak/i
+      queries:["moonbug kids indonesia 2026","edukasi anak indonesia 2026","belajar anak indonesia 2026","cocomelon indonesia anak","little angel indonesia anak","lagu anak babybus indonesia","kartun anak bahasa indonesia","lagu anak indonesia 2026"],
+      relevant:/bahasa indonesia|moonbug kids indonesia|nursery rhymes indonesia|lagu anak|kartun anak|anak indonesia|edukasi[^\n]*anak|anak[^\n]*edukasi|belajar[^\n]*anak|anak[^\n]*belajar|anak-anak|anak anak|anak prasekolah|untuk anak|kids indonesia|babybus bahasa indonesia|spookiz bahasa indonesia|sains seru untuk anak|sajak pendidikan/i
     },
     global:{
       queries:["kids learning 2026","toddler learning 2026","kids educational videos 2026"],
@@ -101,9 +101,7 @@ function targetFromText(value){
 function triggerRecommendationRefresh(){
   const buttons=[...document.querySelectorAll("button,[role='button']")].filter(visible);
   const button=buttons.find(el=>/cari\s*10\s*bahan|cari.*video|perbarui.*rekomendasi|refresh.*rekomendasi/i.test(cleanText(el)));
-  if(button){
-    setTimeout(()=>button.click(),180);
-  }
+  if(button)setTimeout(()=>button.click(),180);
 }
 
 document.addEventListener("click",event=>{
@@ -150,11 +148,11 @@ function uniqueRank(items,cfg,profile){
     });
 }
 
-async function oneRequest(url,init,query,stamp){
+async function oneRequest(url,init,query,stamp,target){
   const u=new URL(url,location.href);
   u.searchParams.set("query",query);
   u.searchParams.set("refresh",String(stamp));
-  u.searchParams.set("target",currentTarget());
+  u.searchParams.set("target",target);
   const response=await downstreamFetch(u.toString(),init);
   if(!response.ok)return {response,data:null};
   try{return {response,data:await response.clone().json()}}catch{return {response,data:null}}
@@ -168,7 +166,7 @@ async function buildRecommendation(url,init,mode,target,generation,original){
   const stamp=Date.now();
   const results=[];
   for(let i=0;i<profile.queries.length;i++){
-    const result=await oneRequest(url,init,profile.queries[i],stamp+i);
+    const result=await oneRequest(url,init,profile.queries[i],stamp+i,target);
     results.push(result);
   }
 
