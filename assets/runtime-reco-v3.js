@@ -1,4 +1,4 @@
-const VC_RECO_VERSION = "20261006-reco-v4.2";
+const VC_RECO_VERSION = "20261006-reco-v4.3";
 console.info(`[ViralClip] recommendations ${VC_RECO_VERSION}`);
 
 const downstreamFetch = window.fetch.bind(window);
@@ -217,7 +217,7 @@ window.fetch=async(input,init={})=>{
 
   // Semua query lokal bawaan React mengandung kata "Indonesia".
   // Query internasional tidak mengandungnya.
-  const queryTarget=/\bindonesia\b/i.test(original)?"id":(queryMode?"global":currentTarget());
+  const queryTarget=String(original).toLowerCase().includes("indonesia")?"id":(queryMode?"global":currentTarget());
 
   // Sinkronkan metadata lain ke state React aktual.
   localStorage.setItem("viralclip_custom_niche",mode);
