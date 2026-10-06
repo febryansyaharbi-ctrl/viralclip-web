@@ -1,4 +1,4 @@
-const RUNTIME_FIX_VERSION = "20261006-stable-core-v4";
+const RUNTIME_FIX_VERSION = "20261006-stable-core-v4.1";
 console.info(`[ViralClip] runtime loader ${RUNTIME_FIX_VERSION}`);
 
 const bundleUrl = `/viralclip-web/assets/index-DK5reAhc.js?v=${RUNTIME_FIX_VERSION}`;
@@ -34,6 +34,7 @@ const SOURCE_CFG = {
     id: {
       queries: ["investasi keuangan Indonesia 2026","saham investasi Indonesia 2026"],
       relevant: /keuangan|investasi|uang|saham|pasar modal|bisnis|financial|finance|invest|stock|market|asset|portfolio/i,
+      localTitle: /cara|indonesia|jangan|saham|investasi|keuangan|bisnis|pemula|kaya|uang|rupiah|modal|cuan/i,
       banned: /tarot|horoscope|zodiac|capricorn|gemini|cancer|libra|aries|taurus|scorpio|sagittarius|aquarius|pisces|leo|virgo|politik|pemilu|presiden/i
     },
     global: {
@@ -44,8 +45,9 @@ const SOURCE_CFG = {
   },
   ai: {
     id: {
-      queries: ["AI Indonesia 2026","tools AI Indonesia 2026"],
-      relevant: /\bai\b|kecerdasan buatan|teknologi|chatgpt|gemini|software|otomasi|automation|coding|tool/i
+      queries: ["cara menggunakan ChatGPT bahasa Indonesia","tutorial kecerdasan buatan bahasa Indonesia","AI untuk bisnis Indonesia","belajar AI Indonesia"],
+      relevant: /\bai\b|kecerdasan buatan|teknologi|chatgpt|gemini|deepseek|claude|software|otomasi|automation|coding|prompt|tool/i,
+      localTitle: /cara|apa itu|belajar|menggunakan|bikin|buat|panduan|pemula|terbaru|update|untuk|dengan|tanpa|kamu|bongkar|wajib|rahasia|indonesia|awas|peluang|bisnis ai/i
     },
     global: {
       queries: ["AI tools 2026","artificial intelligence 2026"],
@@ -54,8 +56,10 @@ const SOURCE_CFG = {
   },
   motivation: {
     id: {
-      queries: ["motivasi psikologi Indonesia 2026","pengembangan diri Indonesia 2026"],
-      relevant: /motivasi|psikologi|pengembangan diri|mindset|mental|kebiasaan|disiplin|percaya diri|self improvement/i
+      queries: ["Merry Riana motivasi 2026","mindset sukses Indonesia motivasi","motivasi hidup Indonesia 2026"],
+      relevant: /motivasi|psikologi|pengembangan diri|mindset|mental|kebiasaan|disiplin|percaya diri|self improvement|sukses|pemenang/i,
+      localTitle: /motivasi|mindset|mental|hidup|sukses|diri|percaya|kebiasaan|disiplin|merry|indonesia|pemenang|semangat/i,
+      banned: /tarot|zodiak|horoscope|scorpio|sagittarius|aquarius|capricorn|gemini|libra|aries|taurus|pisces|leo|virgo|ramalan|penglihatan|pemilu|presiden/i
     },
     global: {
       queries: ["self improvement psychology 2026","motivation mindset 2026"],
@@ -120,6 +124,7 @@ function rankSourceItems(items, profile) {
       const title = String(item.title || "");
       const all = `${title} ${item.channel || ""}`;
       if (profile.banned && profile.banned.test(all)) return false;
+      if (profile.localTitle && !profile.localTitle.test(title)) return false;
       return profile.relevant.test(title);
     })
     .sort((a, b) => Number(b.views || 0) - Number(a.views || 0))
