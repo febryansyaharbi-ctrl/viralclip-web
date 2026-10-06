@@ -1,4 +1,4 @@
-const RUNTIME_FIX_VERSION = "20261006-stable-core-v3-restored";
+const RUNTIME_FIX_VERSION = "20261006-stable-core-v3-restored-q1";
 console.info(`[ViralClip] runtime loader ${RUNTIME_FIX_VERSION}`);
 
 const bundleUrl = `/viralclip-web/assets/index-DK5reAhc.js?v=${RUNTIME_FIX_VERSION}`;
@@ -31,6 +31,10 @@ if (!response.ok) {
 let code = await response.text();
 
 const requiredPatches = [
+  [
+    'kids:{lokal:\`anak edukasi Indonesia\`,internasional:\`kids education\`},finance:{lokal:\`keuangan bisnis Indonesia\`,internasional:\`personal finance business\`},ai_tech:{lokal:\`teknologi AI Indonesia\`,internasional:\`AI technology tools\`},motivation:{lokal:\`motivasi psikologi Indonesia\`,internasional:\`motivation psychology self improvement\`}',
+    'kids:{lokal:\`babybus bahasa indonesia lagu anak\`,internasional:\`kids learning 2026\`},finance:{lokal:\`investasi keuangan Indonesia 2026\`,internasional:\`finance investing 2026\`},ai_tech:{lokal:\`AI untuk bisnis Indonesia\`,internasional:\`AI tools 2026\`},motivation:{lokal:\`mindset sukses Indonesia motivasi\`,internasional:\`self improvement psychology 2026\`}'
+  ],
   [
     'let t=await fetch("https://harnet.tail89c9ef.ts.net/api/process",',
     'let response=await fetch("https://harnet.tail89c9ef.ts.net/api/process",'
