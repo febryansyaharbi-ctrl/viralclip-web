@@ -1,8 +1,10 @@
-const VC_RECO_VERSION = "20261005-reco-v4.1";
+const VC_RECO_VERSION = "20261006-reco-v4.2";
 console.info(`[ViralClip] recommendations ${VC_RECO_VERSION}`);
 
 const downstreamFetch = window.fetch.bind(window);
 let recoGeneration = 0;
+let sourceRequestSeq = 0;
+let latestSourceContext = null;
 
 const CFG = {
   ai: {
@@ -158,7 +160,7 @@ async function oneRequest(url,init,query,stamp,target){
   try{return {response,data:await response.clone().json()}}catch{return {response,data:null}}
 }
 
-async function buildRecommendation(url,init,mode,target,generation,original){
+async function buildRecommendation(url,init,mode,target,requestSeq,original){
   const cfg=CFG[mode];
   const profile=cfg?.[target];
   if(!cfg||!profile)return downstreamFetch(url,init);
@@ -170,10 +172,11 @@ async function buildRecommendation(url,init,mode,target,generation,original){
     results.push(result);
   }
 
-  if(generation!==recoGeneration||target!==currentTarget()){
-    const newTarget=currentTarget();
-    const newMode=localStorage.getItem("viralclip_custom_niche")||mode;
-    return buildRecommendation(url,init,newMode,newTarget,recoGeneration,original);
+  // Jika request lama selesai belakangan, jangan biarkan hasil niche/target lama
+  // menimpa daftar terbaru milik React.
+  if(requestSeq!==sourceRequestSeq && latestSourceContext){
+    const ctx=latestSourceContext;
+    return buildRecommendation(url,init,ctx.mode,ctx.target,sourceRequestSeq,ctx.original);
   }
 
   const primary=results[0];
@@ -202,10 +205,26 @@ window.fetch=async(input,init={})=>{
   const url=typeof input==="string"?input:input?.url||"";
   if(!url.includes("/api/sources?"))return downstreamFetch(input,init);
 
-  let original="",mode=localStorage.getItem("viralclip_custom_niche")||"";
+  let original="";
   try{const u=new URL(url,location.href);original=u.searchParams.get("query")||""}catch{}
-  if(!mode)mode=nicheFromText(original);
+
+  // Query yang dibuat React adalah sumber kebenaran utama.
+  // LocalStorage hanya fallback agar state lama tidak bisa mengalahkan pilihan UI terbaru.
+  const queryMode=nicheFromText(original);
+  const storedMode=localStorage.getItem("viralclip_custom_niche")||"";
+  const mode=CFG[queryMode]?queryMode:storedMode;
   if(!CFG[mode])return downstreamFetch(input,init);
 
-  return buildRecommendation(url,init,mode,currentTarget(),recoGeneration,original);
+  // Semua query lokal bawaan React mengandung kata "Indonesia".
+  // Query internasional tidak mengandungnya.
+  const queryTarget=/\bindonesia\b/i.test(original)?"id":(queryMode?"global":currentTarget());
+
+  // Sinkronkan metadata lain ke state React aktual.
+  localStorage.setItem("viralclip_custom_niche",mode);
+  localStorage.setItem("viralclip_custom_niche_name",CFG[mode].name);
+  localStorage.setItem("viralclip_target_market",queryTarget);
+
+  const requestSeq=++sourceRequestSeq;
+  latestSourceContext={mode,target:queryTarget,original};
+  return buildRecommendation(url,init,mode,queryTarget,requestSeq,original);
 };
